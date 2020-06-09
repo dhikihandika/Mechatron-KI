@@ -5,26 +5,23 @@
 */
 
 
-// #define DEBUG // Serial DEBUG comment
+// #define DEBUG // Serial DEBUG
+#define DEBUG_MOTOR // StepperMotor DEBUG
 
-#define LMTSWT_TOP 2 
-#define LMTSWT_BOTTOM 3
+#define LMTSWT_TOP 2 //PIN -Top LimitSwitch
+#define LMTSWT_BOTTOM 3 //PIN -Bottom LimitSwitch
 #define EN_PIN 4 //ENA -Enable
-#define DIR_PIN 5  //DIR -Direction
+#define DIR_PIN 5 //DIR -Direction
 #define STEP_PIN 6 //PUL -Pulse
 
-#define MICROSTEP1 8000
-#define MICROSTEP2 7000
-#define MICROSTEP3 6000
-#define MICROSTEP4 500
-#define LOW_MICROSTEP 500
-#define timer1 0
-#define timer2 5000
-#define timer3 10000
-#define timer4 20000
+#define VAL_MICROSTEP 5000
+#define VAL_PULSE_GEN 1000
+#define VAL_DECREAMENT 4
 
-unsigned long currentMillis = 0;
-unsigned long previousMillis = 0;
+int MICROSTEP = VAL_MICROSTEP;
+int PULSE_GEN = VAL_PULSE_GEN;
+int count = 1;
+int i = 1;
 
 int READ_LMTSWT_TOP = 0;
 int READ_LMTSWT_BOTTOM = 0;
@@ -32,39 +29,22 @@ bool val_lmtswt_top = false;
 bool val_lmtswt_bottom = false;
 
 /* procedure move motor stepper */
-void stpMov1(){
-  digitalWrite(STEP_PIN,HIGH); delayMicroseconds(MICROSTEP1); 
-  digitalWrite(STEP_PIN,LOW); delayMicroseconds(MICROSTEP1);  
-}
-void stpMov2(){
-  digitalWrite(STEP_PIN,HIGH); delayMicroseconds(MICROSTEP2); 
-  digitalWrite(STEP_PIN,LOW); delayMicroseconds(MICROSTEP2);  
-}
-void stpMov3(){
-  digitalWrite(STEP_PIN,HIGH); delayMicroseconds(MICROSTEP3); 
-  digitalWrite(STEP_PIN,LOW); delayMicroseconds(MICROSTEP3);  
-}
-void stpMov4(){
-  digitalWrite(STEP_PIN,HIGH); delayMicroseconds(MICROSTEP4); 
-  digitalWrite(STEP_PIN,LOW); delayMicroseconds(MICROSTEP4);  
-}
-
-void stpMove(){
-  currentMillis = millis();
-  if((currentMillis - previousMillis >= timer1) && (currentMillis - previousMillis < timer2)){
-    stpMov1();
-  } else {
-    if((currentMillis - previousMillis >= timer2) && (currentMillis - previousMillis < timer3)){
-      stpMov2();
-    } else {
-      if((currentMillis - previousMillis >= timer3) && (currentMillis - previousMillis < timer4)){
-        stpMov3();
-      } else {
-        if(currentMillis - previousMillis >= timer4){
-          stpMov4();
-        }
-      }
+void stpMov(){
+  for(i = 1; i <= PULSE_GEN; i++){
+    MICROSTEP = MICROSTEP - VAL_DECREAMENT;
+    #ifdef DEBUG_MOTOR
+    digitalWrite(STEP_PIN,HIGH); delayMicroseconds(MICROSTEP); 
+    digitalWrite(STEP_PIN,LOW); delayMicroseconds(MICROSTEP);
+    #endif
+    #ifdef DEBUG
+    Serial.print(MICROSTEP);Serial.print(" | "); Serial.print(i); Serial.print(" | "); Serial.println(count);
+    #endif
+    if(count > PULSE_GEN){
+      MICROSTEP = (VAL_PULSE_GEN + VAL_DECREAMENT);
+      count = PULSE_GEN;
+      break;
     }
+    count ++;
   }
 }
 
@@ -84,7 +64,7 @@ void setup() {
   digitalWrite(EN_PIN,LOW);  
   digitalWrite(DIR_PIN,LOW);
 
-  // interrupt 
+  // interrupt I/O
   attachInterrupt(digitalPinToInterrupt(LMTSWT_TOP), readLmtSwt_Top, FALLING);
   attachInterrupt(digitalPinToInterrupt(LMTSWT_BOTTOM), readLmtSwt_Bottom, FALLING);
 }
@@ -94,14 +74,11 @@ void loop() {
   READ_LMTSWT_TOP = digitalRead(LMTSWT_TOP); READ_LMTSWT_BOTTOM = digitalRead(LMTSWT_BOTTOM);
   Serial.print("value limit switch: "); Serial.print(READ_LMTSWT_TOP); Serial.print(" | "); Serial.println(READ_LMTSWT_BOTTOM);
   #endif
-
-  if(val_lmtswt_top){
-    digitalWrite(EN_PIN, LOW); digitalWrite(DIR_PIN, HIGH);
-    stpMove();
+  if(val_lmtswt_top){ 
+    stpMov();
   } else {
-    if(val_lmtswt_bottom){
-      digitalWrite(EN_PIN, LOW); digitalWrite(DIR_PIN, LOW);
-      stpMove();
+    if(val_lmtswt_bottom){ 
+      stpMov();
     }
   }
 }
@@ -109,9 +86,11 @@ void loop() {
 /* ISR read limit switch */
 void readLmtSwt_Top(){
   val_lmtswt_top = true;val_lmtswt_bottom = false;
-  previousMillis = millis();
+  digitalWrite(EN_PIN, LOW); digitalWrite(DIR_PIN, HIGH);
+  MICROSTEP = VAL_MICROSTEP; PULSE_GEN = VAL_PULSE_GEN; count = 1; i = 1;
 }
 void readLmtSwt_Bottom(){
   val_lmtswt_bottom = true;val_lmtswt_top = false;
-  previousMillis = millis();
+  digitalWrite(EN_PIN, HIGH); digitalWrite(DIR_PIN, LOW);
+  MICROSTEP = VAL_MICROSTEP; PULSE_GEN = VAL_PULSE_GEN; count = 1; i = 1;
 }

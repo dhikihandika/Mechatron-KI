@@ -32,24 +32,30 @@ unsigned long crntMils = 0;unsigned long crntMils1 = 0;unsigned long crntMils2 =
 unsigned long prevMils = 0;unsigned long prevMils1 = 0;unsigned long prevMils2 = 0;
 uint8_t state_process = STATE_INIT; //initial procces system
 
-uint16_t MCRSTP = 3000; //Microstep declaration 
-uint16_t PGEN = 1000; //Pulse generate declaration
+uint16_t MCRSTP = 105; //Microstep declaration 
+uint16_t PGEN = 16000; //Pulse generate declaration
 uint16_t cnt = 1; //Buffer count
+uint16_t hth = 1; //Buffer count
 uint16_t i = 1; //BUffer for loop condition
+
 uint16_t clock = 0; 
 uint16_t clock1 = 0;bool tick1 = false;
 uint16_t clock2 = 0;bool tick2 = false;
 
 
-bool initilize = false;
 bool pbStp = false;int pbStr = 0;
 bool lmsTop = false;bool lmsBot = false;
 bool dtctr = false;
 
+//==============================//
 /* procedure move motor stepper */
+//==============================//
 void stpMov(){
   for(i = 1; i <= PGEN; i++){
-    MCRSTP = MCRSTP - 2;
+    if(hth>=200){
+      hth=0;
+      MCRSTP = MCRSTP - 1;
+    }
     #ifdef DEBUG_MOTOR
     digitalWrite(STEP,1); delayMicroseconds(MCRSTP); // dutyCycle its 50%
     digitalWrite(STEP,0); delayMicroseconds(MCRSTP);
@@ -58,14 +64,27 @@ void stpMov(){
     Serial.print(MCRSTP);Serial.print(" | "); Serial.print(i); Serial.print(" | "); Serial.println(cnt);
     #endif
     if(cnt >= PGEN){
-      MCRSTP = (1000 + 2);
+      MCRSTP = 25;
+      // readPot();
       cnt = PGEN;
       break;
     }
-    cnt ++;
+    cnt++;hth++;
   }
 }
 
+//====================================//
+/* procedure read value potensiometer */
+//====================================//
+void readPot(){
+  int a = analogRead(A0);
+  int mH = map(a, 0, 1023, 50, 25);
+  MCRSTP = mH;
+}
+
+//========================//
+/* procedure millis clock */
+//========================//
 void millisClock(){
   crntMils = millis();
   if((crntMils - prevMils >= 1000)&&(crntMils - prevMils <= 1005)){
@@ -90,7 +109,9 @@ void millisClock2(){
   }
 }
 
-/* initilize the program */
+//=======================//
+/* Initilize the program */
+//=======================//
 void setup() {
   // initilize interface serial
   Serial.begin(9600);
@@ -120,10 +141,15 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(STP), stpRun, LOW);
 }
 
+//===============================//
 /* Function use to SoftReset MCU */
+//===============================//
 void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
+
+//=======================//
 /* main loop program */
+//=======================//
 void loop() {
   millisClock();
 // put your main code here, to run repeatedly:
@@ -178,7 +204,9 @@ void loop() {
   }
 }
 
+//=======================//
 /* ISR read limit switch */
+//=======================//
 void rdLmsT(){
   lmsTop = true;
 }
@@ -189,7 +217,7 @@ void rdLmsB(){
 }
 void strRun(){
   pbStr = true;
-  MCRSTP = 3000; PGEN = 1000; cnt = 1; i = 1;
+  MCRSTP = 100; PGEN = 16000; cnt = 1; i = 1;
 }
 void stpRun(){
   pbStp = true;

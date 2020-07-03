@@ -108,7 +108,7 @@ void loop() {
 /* ISR (Interrupt Service Routine) read limit switch */
 void readLmS_T(){
   val_lmS_T = true;val_lmS_B = false;
-  MICROSTEP_H = 380;MICROSTEP_L = 25; PULSE_GEN = 16000; count = 1; i = 1;
+  MICROSTEP_H = 460;MICROSTEP_L = 30; PULSE_GEN = 16000; count = 1; i = 1;
 }
 void readLmS_B(){
   val_lmS_B = true;val_lmS_T = false;

@@ -17,9 +17,9 @@ void loop() {
   // Makes 400 pulses for making one full cycle rotation
   for(int x = 0; x < 16000; x++) {
     digitalWrite(stepPin,HIGH); 
-    delayMicroseconds(25); 
+    delayMicroseconds(100); 
     digitalWrite(stepPin,LOW); 
-    delayMicroseconds(25); 
+    delayMicroseconds(100); 
   }
   delay(1000); // One second delay
 
@@ -27,9 +27,9 @@ void loop() {
   // Makes 400 pulses for making two full cycle rotation
   for(int x = 0; x < 16000; x++) {
     digitalWrite(stepPin,HIGH);
-    delayMicroseconds(25);
+    delayMicroseconds(100);
     digitalWrite(stepPin,LOW);
-    delayMicroseconds(25);
+    delayMicroseconds(100);
   }
   delay(1000);
 }

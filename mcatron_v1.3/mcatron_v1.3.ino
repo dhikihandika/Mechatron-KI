@@ -17,11 +17,13 @@
 // #define EN 4 //PIN -Enable   
 #define DIR 4 //PIN -Direction
 #define STEP 5 //PIN -Pulse Step 
-#define LSR 7 //PIN -Lasser
 #define OPR 6 //PIN - LED indicator operation
+#define LSR 7 //PIN -Lasser
 #define BZZ 11 //PIN -Buzzer
 #define UP 1 //Move UP stepper motor
 #define DOWN 0 //Move Down stepper motor
+#define ON 0 //DO active mode
+#define OFF 1 //DO OFF mode
 
 enum STATE_PROCESS{
   STATE_INIT,
@@ -83,25 +85,38 @@ void readPot(){
   MCRSTP=mH;
 }
 void rdLmsT(){
-  int read=digitalRead(LMS_T);
-   if(read==0){
+  int r=digitalRead(LMS_T);
+   if(r==0){
     lmsTop=true;
   }
 }
 void rdLmsB(){
-  int read=digitalRead(LMS_B);
-  if(read==0){
+  int r=digitalRead(LMS_B);
+  if(r==0){
     if(state_process==STATE_ADJUST_POSITION){
     lmsBot=true;
     }
   }
 }
 void detGo(){
-  int read=digitalRead(DET);
-  if(read==0){
+  int r=digitalRead(DET);
+  if(r==0){
     if(state_process==STATE_ADJUST_POSITION){
     dtctr=true;
     }
+  }
+}
+void strRun(){
+  int r=digitalRead(STR);
+  if(r==0){
+    pbStr=true;
+    MCRSTP=100;PGEN=16000;cnt=1;i=1;
+  }
+}
+void stpRun(){
+  int r=digitalRead(STP);
+  if(r==0){
+    pbStp=true;
   }
 }
 
@@ -155,9 +170,9 @@ void setup(){
   // setup state proccess
   state_process=STATE_INIT;
 
-  // interrupt I/O
-  attachInterrupt(digitalPinToInterrupt(STR),strRun,LOW);
-  attachInterrupt(digitalPinToInterrupt(STP),stpRun,LOW);
+  // // interrupt I/O
+  // attachInterrupt(digitalPinToInterrupt(STR),strRun,LOW);
+  // attachInterrupt(digitalPinToInterrupt(STP),stpRun,LOW);
 }
 
 //===================//
@@ -171,54 +186,55 @@ void loop() {
     lmsBot=pbStr=pbStp=dtctr=false;//Disable all variable can't use
     if(clock>=5){
       rdLmsT();
-      digitalWrite(BZZ,0);
-      digitalWrite(OPR,0);digitalWrite(DIR,UP);stpMov();
+      digitalWrite(BZZ,OFF);
+      digitalWrite(OPR,ON);digitalWrite(DIR,UP);stpMov();
       if(lmsTop){
-        digitalWrite(OPR,1);
+        digitalWrite(OPR,OFF);
         state_process=STATE_PLACE_IN_UP;
         clock1=0;prevMils1=millis();
       }
     } else {
       MCRSTP=100;PGEN=16000;cnt=1;i=1;
-      digitalWrite(BZZ,1);
+      digitalWrite(BZZ,ON);digitalWrite(OPR,OFF);digitalWrite(LSR, OFF);
     }
     break;
   case STATE_PLACE_IN_UP:
-    lmsTop=pbStp=false;//Disabla all variable can't use
+    lmsTop=pbStp=false;//Disable all variable can't use
     millisClock1();
     if(clock1>=5){
+      strRun();
       if(pbStr){
         state_process=STATE_ADJUST_POSITION;
         lmsBot=dtctr=false;
       } else {
-        digitalWrite(BZZ,0);
+        digitalWrite(BZZ,OFF);
       }
     } else {
-      digitalWrite(BZZ,1);digitalWrite(LSR,1);
+      digitalWrite(BZZ,ON);
     }
     break;
   case STATE_ADJUST_POSITION:
     lmsTop=pbStr=pbStp=false;//Disable all variable can't use
     rdLmsB();detGo();
-    if(lmsBot||dtctr){
-      digitalWrite(OPR,0);
+    if(lmsBot){
+      digitalWrite(OPR,OFF);
       state_process=STATE_AFTER_ADJUST;prevMils2=millis();clock2=0;
     } else {
-      digitalWrite(OPR,1);digitalWrite(DIR,DOWN);stpMov();
+      digitalWrite(LSR,ON);digitalWrite(OPR,ON);digitalWrite(DIR,DOWN);stpMov();
     }
     break;
   case STATE_AFTER_ADJUST:
     lmsTop=lmsBot=pbStr=dtctr=false;
     millisClock2();
     if(clock2>=5){
-      digitalWrite(BZZ,0);
+      digitalWrite(BZZ,OFF);stpRun();
       if(pbStp){
         lmsTop=lmsBot=pbStp=pbStp=dtctr=false;
         state_process=STATE_INIT;
-        clock=0;prevMils=millis();
+        digitalWrite(LSR,OFF);clock=0;prevMils=millis();
       }
     } else {
-      digitalWrite(BZZ,1);digitalWrite(LSR,0);
+      digitalWrite(BZZ,ON);
     }
     break;
   default:
@@ -226,13 +242,13 @@ void loop() {
   }
 }
 
-//=====================//
-/* ISR read pushButton */
-//=====================//
-void strRun(){
-  pbStr=true;
-  MCRSTP=100;PGEN=16000;cnt=1;i=1;
-}
-void stpRun(){
-  pbStp=true;
-}
+// //=====================//
+// /* ISR read pushButton */
+// //=====================//
+// void strRun(){
+//   pbStr=true;
+//   MCRSTP=100;PGEN=16000;cnt=1;i=1;
+// }
+// void stpRun(){
+//   pbStp=true;
+// }

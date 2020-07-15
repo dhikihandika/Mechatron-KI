@@ -7,19 +7,18 @@
 // #define DEBUG // Serial DEBUG
 #define DEBUG_MOTOR // StepperMotor DEBUG
 
-#define STR 2 //PIN -PushButton Start
-#define STP 3 //PIN -PushButton Stop
+#define STR 10 //PIN -PushButton Start
+#define STP 11 //PIN -PushButton Stop
 #define LMS_T 8 //PIN -Top LimitSwitch
 #define LMS_B 9 //PIN -Bottom LimitSwitch
-#define DET 10 //PIN - Detector (IR Sensor)
-
+#define DET 2 //PIN - Detector (IR Sensor) ~ optional use if need
 
 // #define EN 4 //PIN -Enable   
 #define DIR 4 //PIN -Direction
 #define STEP 5 //PIN -Pulse Step 
 #define OPR 6 //PIN - LED indicator operation
 #define LSR 7 //PIN -Lasser
-#define BZZ 11 //PIN -Buzzer
+#define BZZ 12 //PIN -Buzzer
 #define UP 1 //Move UP stepper motor
 #define DOWN 0 //Move Down stepper motor
 #define ON 0 //DO active mode
@@ -44,7 +43,6 @@ uint16_t i=1; //BUffer for loop condition
 uint16_t clock=0; 
 uint16_t clock1=0;bool tick1=false;
 uint16_t clock2=0;bool tick2=false;
-
 
 bool pbStp=false;int pbStr=0;
 bool lmsTop=false;bool lmsBot=false;
@@ -76,14 +74,9 @@ void stpMov(){
   }
 }
 
-//====================================//
-/* procedure read value DI and AI */
-//====================================//
-void readPot(){
-  int a=analogRead(A0);
-  int mH=map(a,0,1023,50,25);
-  MCRSTP=mH;
-}
+//=========================//
+/* procedure read value DI */
+//=========================//
 void rdLmsT(){
   int r=digitalRead(LMS_T);
    if(r==0){
@@ -145,6 +138,11 @@ void millisClock2(){
   }
 }
 
+//===============================//
+/* Function use to SoftReset MCU */
+//===============================//
+void(* resetFunc) (void) = 0; //declare reset function @ address 0
+
 //=======================//
 /* Initilize the program */
 //=======================//
@@ -166,32 +164,27 @@ void setup(){
   pinMode(BZZ,OUTPUT);
   pinMode(LSR,OUTPUT);
   pinMode(OPR,OUTPUT);
-  
+ 
   // setup state proccess
   state_process=STATE_INIT;
-
-  // // interrupt I/O
-  // attachInterrupt(digitalPinToInterrupt(STR),strRun,LOW);
-  // attachInterrupt(digitalPinToInterrupt(STP),stpRun,LOW);
 }
 
 //===================//
 /* main loop program */
 //===================//
 void loop() {
-  millisClock();
-// put your main code here, to run repeatedly:
   switch(state_process){
   case STATE_INIT:
-    lmsBot=pbStr=pbStp=dtctr=false;//Disable all variable can't use
+    millisClock();
+    lmsBot=pbStr=pbStp=false;//Disable all variable can't use
     if(clock>=5){
-      rdLmsT();
-      digitalWrite(BZZ,OFF);
-      digitalWrite(OPR,ON);digitalWrite(DIR,UP);stpMov();
       if(lmsTop){
         digitalWrite(OPR,OFF);
         state_process=STATE_PLACE_IN_UP;
         clock1=0;prevMils1=millis();
+      } else {
+        rdLmsT();
+        digitalWrite(BZZ,OFF);digitalWrite(OPR,ON);digitalWrite(DIR,UP);stpMov();
       }
     } else {
       MCRSTP=100;PGEN=16000;cnt=1;i=1;
@@ -199,13 +192,13 @@ void loop() {
     }
     break;
   case STATE_PLACE_IN_UP:
-    lmsTop=pbStp=false;//Disable all variable can't use
+    lmsTop=lmsBot=pbStp=false;//Disable all variable can't use
     millisClock1();
     if(clock1>=5){
       strRun();
-      if(pbStr){
+      if(pbStr){  //Problem in here
         state_process=STATE_ADJUST_POSITION;
-        lmsBot=dtctr=false;
+        lmsBot=false;
       } else {
         digitalWrite(BZZ,OFF);
       }
@@ -215,23 +208,27 @@ void loop() {
     break;
   case STATE_ADJUST_POSITION:
     lmsTop=pbStr=pbStp=false;//Disable all variable can't use
-    rdLmsB();detGo();
     if(lmsBot){
       digitalWrite(OPR,OFF);
       state_process=STATE_AFTER_ADJUST;prevMils2=millis();clock2=0;
     } else {
+      rdLmsB();
       digitalWrite(LSR,ON);digitalWrite(OPR,ON);digitalWrite(DIR,DOWN);stpMov();
     }
     break;
   case STATE_AFTER_ADJUST:
-    lmsTop=lmsBot=pbStr=dtctr=false;
+    lmsTop=lmsBot=pbStr=false;
     millisClock2();
     if(clock2>=5){
       digitalWrite(BZZ,OFF);stpRun();
       if(pbStp){
-        lmsTop=lmsBot=pbStp=pbStp=dtctr=false;
-        state_process=STATE_INIT;
-        digitalWrite(LSR,OFF);clock=0;prevMils=millis();
+        /* When manual false all programe */
+        // lmsTop=lmsBot=pbStp=pbStp=false;
+        // state_process=STATE_INIT;
+        // digitalWrite(LSR,OFF);clock=0;prevMils=millis();
+
+        /* When use softFunc */
+        resetFunc();
       }
     } else {
       digitalWrite(BZZ,ON);
@@ -241,14 +238,3 @@ void loop() {
     break;
   }
 }
-
-// //=====================//
-// /* ISR read pushButton */
-// //=====================//
-// void strRun(){
-//   pbStr=true;
-//   MCRSTP=100;PGEN=16000;cnt=1;i=1;
-// }
-// void stpRun(){
-//   pbStp=true;
-// }

@@ -1,7 +1,7 @@
 /*
   author  : dhikihandika 
   email   : dhikihandika36@gmail.com 
-  date    : 02/07/2020 
+  date    : 15/07/2020 
 */
 
 // #define DEBUG // Serial DEBUG
@@ -12,13 +12,13 @@
 #define LMS_T 8 //PIN -Top LimitSwitch
 #define LMS_B 9 //PIN -Bottom LimitSwitch
 #define DET 2 //PIN - Detector (IR Sensor) ~ optional use if need
-#define OPR 6 //PIN - LED indicator operation
-#define LSR 7 //PIN -Lasser
-#define BZZ 12 //PIN -Buzzer
 
 // #define EN 4 //PIN -Enable   
 #define DIR 4 //PIN -Direction
 #define STEP 5 //PIN -Pulse Step 
+#define OPR 6 //PIN - LED indicator operation
+#define LSR 7 //PIN -Lasser
+#define BZZ 12 //PIN -Buzzer
 #define UP 1 //Move UP stepper motor
 #define DOWN 0 //Move Down stepper motor
 #define ON 0 //DO active mode
@@ -26,6 +26,7 @@
 
 enum STATE_PROCESS{
   STATE_INIT,
+  STATE_MOVE_UP,
   STATE_PLACE_IN_UP,
   STATE_ADJUST_POSITION,
   STATE_AFTER_ADJUST
@@ -79,37 +80,53 @@ void stpMov(){
 //=========================//
 void rdLmsT(){
   int r=digitalRead(LMS_T);
-   if(r==0){
-    lmsTop=true;
+  if(!lmsTop){
+    if(r==0){
+      lmsTop=true;
+    }
   }
 }
 void rdLmsB(){
   int r=digitalRead(LMS_B);
-  if(r==0){
-    if(state_process==STATE_ADJUST_POSITION){
-    lmsBot=true;
+  if(!lmsBot){
+    if(r==0){
+      if(state_process==STATE_ADJUST_POSITION){
+        lmsBot=true;
+      }
     }
   }
 }
 void detGo(){
   int r=digitalRead(DET);
-  if(r==0){
-    if(state_process==STATE_ADJUST_POSITION){
-    dtctr=true;
+  if(!dtctr){
+    if(r==0){
+      if(state_process==STATE_ADJUST_POSITION){
+        dtctr=true;
+      }
     }
   }
 }
 void strRun(){
   int r=digitalRead(STR);
-  if(r==0){
-    pbStr=true;
-    MCRSTP=100;PGEN=16000;cnt=1;i=1;
+  if(!pbStr){
+    if(r==0){
+    delay(3000);
+      if(r==0){
+        pbStr=true;
+        MCRSTP=100;PGEN=16000;cnt=1;i=1;
+      }
+    }
   }
 }
 void stpRun(){
   int r=digitalRead(STP);
-  if(r==0){
-    pbStp=true;
+  if(!pbStp){
+    if(r==0){
+    delay(3000);
+      if(r==0){
+        pbStp=true;
+      }
+    }
   }
 }
 
@@ -176,63 +193,32 @@ void loop() {
   switch(state_process){
   case STATE_INIT:
     millisClock();
-    lmsBot=pbStr=pbStp=false;//Disable all variable can't use
+    lmsTop=false;lmsBot=false;pbStr=false;pbStp=false;
     if(clock>=5){
-      if(lmsTop){
-        digitalWrite(OPR,OFF);
-        state_process=STATE_PLACE_IN_UP;
-        clock1=0;prevMils1=millis();
-      } else {
-        rdLmsT();
-        digitalWrite(BZZ,OFF);digitalWrite(OPR,ON);digitalWrite(DIR,UP);stpMov();
-      }
-    } else {
+      state_process=STATE_MOVE_UP;
       MCRSTP=100;PGEN=16000;cnt=1;i=1;
+    } else {
       digitalWrite(BZZ,ON);digitalWrite(OPR,OFF);digitalWrite(LSR, OFF);
     }
     break;
-  case STATE_PLACE_IN_UP:
-    lmsTop=lmsBot=pbStp=false;//Disable all variable can't use
-    millisClock1();
-    if(clock1>=5){
-      strRun();
-      if(pbStr){  //Problem in here
-        state_process=STATE_ADJUST_POSITION;
-        lmsBot=false;
-      } else {
-        digitalWrite(BZZ,OFF);
-      }
+  case STATE_MOVE_UP:
+    lmsBot=false;pbStr=false;pbStp=false;
+    if(lmsTop){
+      state_process=STATE_PLACE_IN_UP;
     } else {
-      digitalWrite(BZZ,ON);
+      rdLmsT();
+      digitalWrite(BZZ,OFF);digitalWrite(OPR,ON);digitalWrite(DIR,UP);stpMov();
     }
+    break;
+  case STATE_PLACE_IN_UP:
+
+    
     break;
   case STATE_ADJUST_POSITION:
-    lmsTop=pbStr=pbStp=false;//Disable all variable can't use
-    if(lmsBot){
-      digitalWrite(OPR,OFF);
-      state_process=STATE_AFTER_ADJUST;prevMils2=millis();clock2=0;
-    } else {
-      rdLmsB();
-      digitalWrite(LSR,ON);digitalWrite(OPR,ON);digitalWrite(DIR,DOWN);stpMov();
-    }
+    
     break;
   case STATE_AFTER_ADJUST:
-    lmsTop=lmsBot=pbStr=false;
-    millisClock2();
-    if(clock2>=5){
-      digitalWrite(BZZ,OFF);stpRun();
-      if(pbStp){
-        /* When manual false all programe */
-        // lmsTop=lmsBot=pbStp=pbStp=false;
-        // state_process=STATE_INIT;
-        // digitalWrite(LSR,OFF);clock=0;prevMils=millis();
-
-        /* When use softFunc */
-        resetFunc();
-      }
-    } else {
-      digitalWrite(BZZ,ON);
-    }
+    
     break;
   default:
     break;
